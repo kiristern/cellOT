@@ -10,6 +10,8 @@ from cellot.losses.mmd import mmd_distance
 from cellot.utils import load_config
 from cellot.data.cell import read_single_anndata
 
+import anndata as ad
+
 
 FLAGS = flags.FLAGS
 flags.DEFINE_boolean('predictions', True, 'Run predictions.')
@@ -115,8 +117,10 @@ def main(argv):
             assert config.model.name == 'cellot'
             config.data.ae_emb.path = str(expdir.parent / 'model-scgen')
         cache = outdir / 'imputed.h5ad'
+        control_cache = outdir / 'control.h5ad'
+        treated_cache = outdir / 'treated.h5ad'
 
-        _, treateddf, imputed = load_conditions(
+        controleddf, treateddf, imputed = load_conditions(
                 expdir, where, setting, embedding=embedding)
 
         imputed.write(cache)
@@ -124,6 +128,18 @@ def main(argv):
 
         imputeddf.columns = imputeddf.columns.astype(str)
         treateddf.columns = treateddf.columns.astype(str)
+        
+        # Save control cells in .h5ad format
+        controledad = ad.AnnData(X=controleddf.values)
+        controledad.obs_names = controleddf.index 
+        controledad.var_names = controleddf.columns
+        controledad.write(control_cache)
+
+        # Save treated cells in .h5ad format
+        treatedad = ad.AnnData(X=treateddf.values)
+        treatedad.obs_names = treateddf.index 
+        treatedad.var_names = treateddf.columns
+        treatedad.write(treated_cache)
 
         assert imputeddf.columns.equals(treateddf.columns)
 
